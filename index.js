@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 // Load environment variables
 dotenv.config();
 
@@ -51,6 +51,56 @@ const database = client.db("bondmateDB"); // Name of your DB
       const biodatas = await biodataCollection.find().toArray();
       res.send(biodatas);
     });
+
+app.get("/biodata-by-email", async (req, res) => {
+  try {
+    const email = req.query.email;
+
+    if (!email) {
+      return res.status(400).send({ message: "Email query parameter is required." });
+    }
+
+    const biodata = await biodataCollection.findOne({ email });
+
+    if (!biodata) {
+      return res.status(404).send({ message: "Biodata not found for this email." });
+    }
+
+    res.send(biodata);
+  } catch (error) {
+    console.error("Error fetching biodata by email:", error);
+    res.status(500).send({ message: "Internal server error." });
+  }
+});
+
+app.patch("/biodata/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedData = req.body;
+
+    const result = await biodataCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updatedData }
+    );
+
+    res.send(result);
+  } catch (error) {
+    console.error("Error updating biodata:", error);
+    res.status(500).send({ message: "Internal server error" });
+  }
+});
+
+app.patch('/premium-request/:id', async (req, res) => {
+  const id = req.params.id;
+  const result = await biodataCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { premiumRequested: true } }
+  );
+  res.send(result);
+});
+
+
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
