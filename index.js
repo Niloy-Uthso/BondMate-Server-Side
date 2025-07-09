@@ -33,6 +33,72 @@ async function run() {
 
 const database = client.db("bondmateDB"); // Name of your DB
     const biodataCollection = database.collection("biodata"); // Your collection
+    const usersCollection = database.collection("users");
+
+    app.post("/users", async (req, res) => {
+  const { email, role } = req.body;
+
+  const existingUser = await usersCollection.findOne({ email });
+
+  if (existingUser) {
+    return res.status(200).send({ message: "User already exists." });
+  }
+
+  const result = await usersCollection.insertOne({
+    email,
+    role: role || "normal",
+    favourites: []
+  });
+
+  res.send(result);
+});
+
+
+app.patch("/users/add-favourite", async (req, res) => {
+  const { email, biodataId } = req.body;
+
+  const result = await usersCollection.updateOne(
+    { email },
+    { $addToSet: { favourites: biodataId } } // $addToSet prevents duplicates
+  );
+
+  res.send(result);
+});
+
+ app.post("/biodatas-by-ids", async (req, res) => {
+  const ids = req.body.ids; // [1, 5, 12]
+
+  const biodatas = await biodataCollection.find({
+    biodataId: { $in: ids }
+  }).toArray();
+
+  res.send(biodatas);
+});
+
+
+app.get("/users/:email", async (req, res) => {
+  const email = req.params.email;
+
+  const user = await usersCollection.findOne({ email });
+
+  if (!user) {
+    return res.status(404).send({ message: "User not found" });
+  }
+
+  res.send(user);
+});
+
+app.patch("/users/:email/remove-favourite", async (req, res) => {
+  const email = req.params.email;
+  const { biodataId } = req.body;
+
+  const result = await usersCollection.updateOne(
+    { email },
+    { $pull: { favourites: biodataId } }
+  );
+
+  res.send(result);
+});
 
 
     app.post("/biodata", async (req, res) => {
@@ -47,7 +113,7 @@ const database = client.db("bondmateDB"); // Name of your DB
       res.send({ success: true, insertedId: result.insertedId, biodataId: newId });
     });
 
-      app.get("/biodata", async (req, res) => {
+      app.get("/biodatas", async (req, res) => {
       const biodatas = await biodataCollection.find().toArray();
       res.send(biodatas);
     });
@@ -104,6 +170,23 @@ app.delete('/biodata/:id', async (req, res) => {
   const result = await biodataCollection.deleteOne({ _id: new ObjectId(id) });
   res.send(result);
 });
+
+// Get a single biodata by its MongoDB _id
+app.get("/biodata/:id", async (req, res) => {
+  const id = req.params.id;
+  const query = { _id: new ObjectId(id) };
+  const biodata = await biodataCollection.findOne(query);
+
+  if (!biodata) {
+    return res.status(404).send({ message: "Biodata not found" });
+  }
+
+  res.send(biodata);
+});
+
+
+ 
+
 
 
     // Send a ping to confirm a successful connection
