@@ -1,9 +1,14 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
+
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 // Load environment variables
 dotenv.config();
+
+const Stripe = require("stripe");
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -11,6 +16,7 @@ const port = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
 
 
 
@@ -34,6 +40,8 @@ async function run() {
 const database = client.db("bondmateDB"); // Name of your DB
     const biodataCollection = database.collection("biodata"); // Your collection
     const usersCollection = database.collection("users");
+     const contactRequestsCollection =database.collection("contactrequest")
+
 
     app.post("/users", async (req, res) => {
   const { email, role } = req.body;
@@ -184,6 +192,59 @@ app.get("/biodata/:id", async (req, res) => {
   res.send(biodata);
 });
 
+
+
+app.post("/create-payment-intent", async (req, res) => {
+  const { price } = req.body;
+
+  const amount = parseInt(price * 100); // Convert USD to cents
+
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: "usd",
+      payment_method_types: ["card"],
+    });
+
+    res.send({
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch (err) {
+    console.error("Stripe PaymentIntent error:", err);
+    res.status(500).send({ error: err.message });
+  }
+});
+
+
+
+app.post("/contact-requests", async (req, res) => {
+  const { biodataId, userEmail, transactionId, status ,requestedbioname} = req.body;
+
+  const result = await contactRequestsCollection.insertOne({
+    biodataId,
+    userEmail,
+    transactionId,
+    status, // pending
+    createdAt: new Date(),
+    requestedbioname,
+  });
+
+  res.send(result);
+});
+
+// Get all requests for a user
+app.get("/contact-requests/:email", async (req, res) => {
+  const email = req.params.email;
+  const requests = await contactRequestsCollection.find({ userEmail: email }).toArray();
+  res.send(requests);
+});
+
+// Delete a request
+app.delete("/contact-requests/:id", async (req, res) => {
+  const id = req.params.id;
+  const result = await contactRequestsCollection.deleteOne({ _id: new ObjectId(id) });
+  res.send(result);
+});
 
  
 
