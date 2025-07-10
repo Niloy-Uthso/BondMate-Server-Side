@@ -42,6 +42,10 @@ const database = client.db("bondmateDB"); // Name of your DB
     const usersCollection = database.collection("users");
      const contactRequestsCollection =database.collection("contactrequest")
 
+     app.get("/contactrequests", async (req, res) => {
+  const requests = await contactRequestsCollection.find().toArray();
+  res.send(requests);
+});
 
     app.post("/users", async (req, res) => {
   const { email, role } = req.body;
@@ -55,9 +59,45 @@ const database = client.db("bondmateDB"); // Name of your DB
   const result = await usersCollection.insertOne({
     email,
     role: role || "normal",
-    favourites: []
+    favourites: [],
+    premiumRole:"no"
   });
 
+  res.send(result);
+});
+
+app.get("/users", async (req, res) => {
+  const users = await usersCollection.find().toArray();
+  res.send(users);
+});
+
+app.patch("/users/:email/role", async (req, res) => {
+  const email = req.params.email;
+  const { role } = req.body;
+  const result = await usersCollection.updateOne({ email }, { $set: { role } });
+  res.send(result);
+});
+
+app.patch("/users/:email/premium", async (req, res) => {
+  const email = req.params.email;
+  const { premiumRole } = req.body;
+  const result = await usersCollection.updateOne({ email }, { $set: { premiumRole } });
+  res.send(result);
+});
+
+// ✅ Patch biodata role
+app.patch("/biodatas/:email/role", async (req, res) => {
+  const email = req.params.email;
+  const { role } = req.body;
+  const result = await biodataCollection.updateOne({ email }, { $set: { role } });
+  res.send(result);
+});
+
+// ✅ Patch biodata premium
+app.patch("/biodatas/:email/premium", async (req, res) => {
+  const email = req.params.email;
+  const { premiumRole } = req.body;
+  const result = await biodataCollection.updateOne({ email }, { $set: { premiumRole } });
   res.send(result);
 });
 
@@ -245,6 +285,10 @@ app.delete("/contact-requests/:id", async (req, res) => {
   const result = await contactRequestsCollection.deleteOne({ _id: new ObjectId(id) });
   res.send(result);
 });
+
+
+ 
+
 
  
 
