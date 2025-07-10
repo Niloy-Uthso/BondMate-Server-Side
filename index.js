@@ -40,7 +40,8 @@ async function run() {
 const database = client.db("bondmateDB"); // Name of your DB
     const biodataCollection = database.collection("biodata"); // Your collection
     const usersCollection = database.collection("users");
-     const contactRequestsCollection =database.collection("contactrequest")
+     const contactRequestsCollection =database.collection("contactrequest");
+     const premiumRequestCollection = database.collection("premiumrequest");
 
      app.get("/contactrequests", async (req, res) => {
   const requests = await contactRequestsCollection.find().toArray();
@@ -100,6 +101,19 @@ app.patch("/biodatas/:email/premium", async (req, res) => {
   const result = await biodataCollection.updateOne({ email }, { $set: { premiumRole } });
   res.send(result);
 });
+
+app.get("/premium-requests", async (req, res) => {
+  const requests = await premiumRequestCollection.find().toArray();
+  res.send(requests);
+});
+
+app.delete("/premium-requests/:email", async (req, res) => {
+  const email = req.params.email;
+  const result = await premiumRequestCollection.deleteOne({ email });
+  res.send(result);
+});
+
+
 
 
 app.patch("/users/add-favourite", async (req, res) => {
@@ -204,14 +218,26 @@ app.patch("/biodata/:id", async (req, res) => {
   }
 });
 
-app.patch('/premium-request/:id', async (req, res) => {
-  const id = req.params.id;
-  const result = await biodataCollection.updateOne(
-    { _id: new ObjectId(id) },
-    { $set: { premiumRequested: true } }
-  );
+ app.post("/premium-request", async (req, res) => {
+  const { name, email, biodataId } = req.body;
+
+  // ✅ Check if already requested
+  const existingRequest = await premiumRequestCollection.findOne({ email });
+
+  if (existingRequest) {
+    return res.send({ alreadyRequested: true });
+  }
+
+  // ✅ Insert new request
+  const result = await premiumRequestCollection.insertOne({
+    name,
+    email,
+    biodataId
+  });
+
   res.send(result);
 });
+
 
 app.delete('/biodata/:id', async (req, res) => {
   const id = req.params.id;
