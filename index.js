@@ -408,18 +408,48 @@ app.post("/contact-requests", async (req, res) => {
 });
 
 // Get all requests for a user
-app.get("/contact-requests/:email", async (req, res) => {
-  const email = req.params.email;
-  const requests = await contactRequestsCollection.find({ userEmail: email }).toArray();
-  res.send(requests);
+// app.get("/contact-requests/:email", async (req, res) => {
+//   const email = req.params.email;
+//   const requests = await contactRequestsCollection.find({ userEmail: email }).toArray();
+//   res.send(requests);
+// });
+
+// // Delete a request
+// app.delete("/contact-requests/:id", async (req, res) => {
+//   const id = req.params.id;
+//   const result = await contactRequestsCollection.deleteOne({ _id: new ObjectId(id) });
+//   res.send(result);
+// });
+
+app.get("/biodata-by-ids", async (req, res) => {
+  const ids = req.query.ids.split(",").map(id => parseInt(id));
+  const biodatas = await biodataCollection.find({ biodataId: { $in: ids } }).toArray();
+  res.send(biodatas);
 });
 
-// Delete a request
-app.delete("/contact-requests/:id", async (req, res) => {
-  const id = req.params.id;
-  const result = await contactRequestsCollection.deleteOne({ _id: new ObjectId(id) });
+app.patch("/users/:email/requestedbio/remove", async (req, res) => {
+  const email = req.params.email;
+  const { biodataId } = req.body;
+
+  const result = await usersCollection.updateOne(
+    { email },
+    { $pull: { requestedbio: biodataId } }
+  );
+
   res.send(result);
 });
+
+app.delete("/contact-requests/user/:email/biodata/:biodataId", async (req, res) => {
+  const { email, biodataId } = req.params;
+
+  const result = await contactRequestCollection.deleteOne({
+    userEmail: email,
+    biodataId: parseInt(biodataId)
+  });
+
+  res.send(result);
+});
+
 
 
  
