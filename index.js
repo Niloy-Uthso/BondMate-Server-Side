@@ -113,6 +113,34 @@ app.delete("/premium-requests/:email", async (req, res) => {
   res.send(result);
 });
 
+// PATCH approve contact request
+app.patch("/contactrequest/approve/:id", async (req, res) => {
+  const requestId = req.params.id;
+
+  // Find the contact request first
+  const request = await contactRequestCollection.findOne({ _id: new ObjectId(requestId) });
+
+  if (!request) {
+    return res.status(404).send({ message: "Request not found" });
+  }
+
+  const { biodataId, userEmail } = request;
+
+  // Update the biodata - push email to whoHasContactAccess
+  const updateResult = await biodataCollection.updateOne(
+    { biodataId: parseInt(biodataId) },
+    { $addToSet: { whoHasContactAccess: userEmail } }
+  );
+
+  // Remove the request from contactrequest collection
+  const deleteResult = await contactRequestCollection.deleteOne({ _id: new ObjectId(requestId) });
+
+  res.send({
+    success: updateResult.modifiedCount > 0 && deleteResult.deletedCount > 0,
+  });
+});
+
+
 
 
 
