@@ -61,16 +61,58 @@ const database = client.db("bondmateDB"); // Name of your DB
     email,
     role: role || "normal",
     favourites: [],
-    premiumRole:"no"
+    premiumRole:"no",
+    requestedbio:[],
   });
 
   res.send(result);
 });
 
+app.patch("/users/request-biodata/:email", async (req, res) => {
+  try {
+    const email = req.params.email;
+    const { biodataId } = req.body;
+
+    if (!biodataId) {
+      return res.status(400).send({ error: "BiodataId is required." });
+    }
+
+    const result = await usersCollection.updateOne(
+      { email },
+      { $addToSet: { requestedbio: biodataId } }
+    );
+
+    res.send(result);
+  } catch (err) {
+    console.error("Error updating requestedbio:", err);
+    res.status(500).send({ error: "Server error" });
+  }
+});
+
+
 app.get("/users", async (req, res) => {
   const users = await usersCollection.find().toArray();
   res.send(users);
 });
+
+app.get("/user-role", async (req, res) => {
+  try {
+    const email = req.query.email;
+    if (!email) return res.status(400).send({ error: "Email is required." });
+
+    const user = await usersCollection.findOne({ email: email });
+    if (!user) return res.status(404).send({ error: "User not found." });
+
+    res.send({
+      role: user.role || "normal",
+      premiumRole: user.premiumRole || "no",
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: "Server error" });
+  }
+});
+
 
 app.patch("/users/:email/role", async (req, res) => {
   const email = req.params.email;
@@ -118,7 +160,7 @@ app.patch("/contactrequest/approve/:id", async (req, res) => {
   const requestId = req.params.id;
 
   // Find the contact request first
-  const request = await contactRequestCollection.findOne({ _id: new ObjectId(requestId) });
+  const request = await contactRequestsCollection.findOne({ _id: new ObjectId(requestId) });
 
   if (!request) {
     return res.status(404).send({ message: "Request not found" });
@@ -133,7 +175,7 @@ app.patch("/contactrequest/approve/:id", async (req, res) => {
   );
 
   // Remove the request from contactrequest collection
-  const deleteResult = await contactRequestCollection.deleteOne({ _id: new ObjectId(requestId) });
+  const deleteResult = await contactRequestsCollection.deleteOne({ _id: new ObjectId(requestId) });
 
   res.send({
     success: updateResult.modifiedCount > 0 && deleteResult.deletedCount > 0,
@@ -145,15 +187,22 @@ app.patch("/contactrequest/approve/:id", async (req, res) => {
 
 
 app.patch("/users/add-favourite", async (req, res) => {
-  const { email, biodataId } = req.body;
+  try {
+    const { email, biodataId } = req.body;
 
-  const result = await usersCollection.updateOne(
-    { email },
-    { $addToSet: { favourites: biodataId } } // $addToSet prevents duplicates
-  );
+    const result = await usersCollection.updateOne(
+      { email },
+      { $addToSet: { favourites: biodataId } } // prevent duplicates
+    );
 
-  res.send(result);
+    res.send(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: "Server error" });
+  }
 });
+
+
 
  app.post("/biodatas-by-ids", async (req, res) => {
   const ids = req.body.ids; // [1, 5, 12]
@@ -177,6 +226,8 @@ app.get("/users/:email", async (req, res) => {
 
   res.send(user);
 });
+
+
 
 app.patch("/users/:email/remove-favourite", async (req, res) => {
   const email = req.params.email;
@@ -207,6 +258,30 @@ app.patch("/users/:email/remove-favourite", async (req, res) => {
       const biodatas = await biodataCollection.find().toArray();
       res.send(biodatas);
     });
+
+
+    app.get("/similarbiodatas", async (req, res) => {
+  try {
+    const { type, exclude, limit } = req.query;
+
+    const query = { biodataType: type };
+    if (exclude) {
+      query._id = { $ne: new ObjectId(exclude) };
+    }
+
+    const options = {};
+    if (limit) {
+      options.limit = parseInt(limit);
+    }
+
+    const biodatas = await biodataCollection.find(query, options).toArray();
+    res.send(biodatas);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: "Server error" });
+  }
+});
+
 
 app.get("/biodata-by-email", async (req, res) => {
   try {
@@ -275,16 +350,22 @@ app.delete('/biodata/:id', async (req, res) => {
 
 // Get a single biodata by its MongoDB _id
 app.get("/biodata/:id", async (req, res) => {
-  const id = req.params.id;
-  const query = { _id: new ObjectId(id) };
-  const biodata = await biodataCollection.findOne(query);
+  try {
+    const id = req.params.id;
+    const query = { _id: new ObjectId(id) };
+    const biodata = await biodataCollection.findOne(query);
 
-  if (!biodata) {
-    return res.status(404).send({ message: "Biodata not found" });
+    if (!biodata) {
+      return res.status(404).send({ error: "Biodata not found." });
+    }
+
+    res.send(biodata);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: "Server error" });
   }
-
-  res.send(biodata);
 });
+
 
 
 
