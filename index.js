@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
-
+const admin = require("firebase-admin");
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 // Load environment variables
 dotenv.config();
@@ -17,6 +17,14 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+
+
+
+const serviceAccount = require("./firebaseadminkey.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
 
 
@@ -43,7 +51,51 @@ const database = client.db("bondmateDB"); // Name of your DB
      const contactRequestsCollection =database.collection("contactrequest");
      const premiumRequestCollection = database.collection("premiumrequest");
 
-     app.get("/contactrequests", async (req, res) => {
+     const verifyFBtoken= async (req,res,next)=>{
+      // console.log("header in middleweare",req.headers)
+
+      // console.log("aaaaaksk",req.headers)
+      const authHeader =req.headers.authorization;
+      // console.log("authheader",authHeader)
+
+      if(!authHeader){
+        return res.status(401).send({message:"unauthorzed access"})
+      }
+
+      const token=authHeader.split(" ")[1];
+      if(!token)
+     {
+   return res.status(401).send({message:"unauthorzed access"})
+    }
+
+    try{
+       const decoded = await admin.auth().verifyIdToken(token) 
+       req.decoded=decoded;
+       next();
+      }
+
+      catch(error){
+        return res.status(403).send({message:"forbidden access"})
+      }
+
+      
+     }
+
+     const verifyAdmin = async (req,res,next)=>{
+
+       const email=req.decoded.email;
+       const query ={email}
+       const user = await usersCollection.findOne(query);
+
+       if(!user || user.role !== "admin"){
+        return res.status(403).send({message:"forbidden access"})
+       }
+       next()
+
+     }
+
+
+     app.get("/contactrequests",verifyFBtoken,verifyAdmin, async (req, res) => {
   const requests = await contactRequestsCollection.find().toArray();
   res.send(requests);
 });
@@ -90,12 +142,12 @@ app.patch("/users/request-biodata/:email", async (req, res) => {
 });
 
 
-app.get("/users", async (req, res) => {
+app.get("/users",verifyFBtoken,verifyAdmin, async (req, res) => {
   const users = await usersCollection.find().toArray();
   res.send(users);
 });
 
-app.get("/user-role", async (req, res) => {
+app.get("/user-role",verifyFBtoken, async (req, res) => {
   try {
     const email = req.query.email;
     if (!email) return res.status(400).send({ error: "Email is required." });
@@ -114,14 +166,14 @@ app.get("/user-role", async (req, res) => {
 });
 
 
-app.patch("/users/:email/role", async (req, res) => {
+app.patch("/users/:email/role",verifyFBtoken,verifyAdmin, async (req, res) => {
   const email = req.params.email;
   const { role } = req.body;
   const result = await usersCollection.updateOne({ email }, { $set: { role } });
   res.send(result);
 });
 
-app.patch("/users/:email/premium", async (req, res) => {
+app.patch("/users/:email/premium",verifyFBtoken,verifyAdmin, async (req, res) => {
   const email = req.params.email;
   const { premiumRole } = req.body;
   const result = await usersCollection.updateOne({ email }, { $set: { premiumRole } });
@@ -129,7 +181,7 @@ app.patch("/users/:email/premium", async (req, res) => {
 });
 
 // ✅ Patch biodata role
-app.patch("/biodatas/:email/role", async (req, res) => {
+app.patch("/biodatas/:email/role",verifyFBtoken,verifyAdmin, async (req, res) => {
   const email = req.params.email;
   const { role } = req.body;
   const result = await biodataCollection.updateOne({ email }, { $set: { role } });
@@ -137,26 +189,26 @@ app.patch("/biodatas/:email/role", async (req, res) => {
 });
 
 // ✅ Patch biodata premium
-app.patch("/biodatas/:email/premium", async (req, res) => {
+app.patch("/biodatas/:email/premium",verifyFBtoken,verifyAdmin, async (req, res) => {
   const email = req.params.email;
   const { premiumRole } = req.body;
   const result = await biodataCollection.updateOne({ email }, { $set: { premiumRole } });
   res.send(result);
 });
 
-app.get("/premium-requests", async (req, res) => {
+app.get("/premium-requests",verifyFBtoken,verifyAdmin, async (req, res) => {
   const requests = await premiumRequestCollection.find().toArray();
   res.send(requests);
 });
 
-app.delete("/premium-requests/:email", async (req, res) => {
+app.delete("/premium-requests/:email",verifyFBtoken,verifyAdmin, async (req, res) => {
   const email = req.params.email;
   const result = await premiumRequestCollection.deleteOne({ email });
   res.send(result);
 });
 
 // PATCH approve contact request
-app.patch("/contactrequest/approve/:id", async (req, res) => {
+app.patch("/contactrequest/approve/:id",verifyFBtoken,verifyAdmin, async (req, res) => {
   const requestId = req.params.id;
 
   // Find the contact request first
@@ -215,7 +267,7 @@ app.patch("/users/add-favourite", async (req, res) => {
 });
 
 
-app.get("/users/:email", async (req, res) => {
+app.get("/users/:email",verifyFBtoken, async (req, res) => {
   const email = req.params.email;
 
   const user = await usersCollection.findOne({ email });
@@ -242,9 +294,9 @@ app.patch("/users/:email/remove-favourite", async (req, res) => {
 });
 
 
-    app.post("/biodata", async (req, res) => {
+    app.post("/biodata",verifyFBtoken, async (req, res) => {
       const biodata = req.body;
-
+        
       // Automatically generate biodataId
       const last = await biodataCollection.find().sort({ biodataId: -1 }).limit(1).toArray();
       const newId = last.length ? last[0].biodataId + 1 : 1;
@@ -255,12 +307,13 @@ app.patch("/users/:email/remove-favourite", async (req, res) => {
     });
 
       app.get("/biodatas", async (req, res) => {
+        
       const biodatas = await biodataCollection.find().toArray();
       res.send(biodatas);
     });
 
 
-    app.get("/similarbiodatas", async (req, res) => {
+    app.get("/similarbiodatas",verifyFBtoken, async (req, res) => {
   try {
     const { type, exclude, limit } = req.query;
 
@@ -283,10 +336,14 @@ app.patch("/users/:email/remove-favourite", async (req, res) => {
 });
 
 
-app.get("/biodata-by-email", async (req, res) => {
+app.get("/biodata-by-email",verifyFBtoken, async (req, res) => {
   try {
     const email = req.query.email;
-
+  //  console.log("decoded",req.decoded)
+     if(req.decoded.email !== email){
+      return res.status(403).send({message:"forbidden access"})
+     }
+ 
     if (!email) {
       return res.status(400).send({ message: "Email query parameter is required." });
     }
@@ -304,7 +361,7 @@ app.get("/biodata-by-email", async (req, res) => {
   }
 });
 
-app.patch("/biodata/:id", async (req, res) => {
+app.patch("/biodata/:id",verifyFBtoken, async (req, res) => {
   try {
     const { id } = req.params;
     const updatedData = req.body;
@@ -349,7 +406,8 @@ app.delete('/biodata/:id', async (req, res) => {
 });
 
 // Get a single biodata by its MongoDB _id
-app.get("/biodata/:id", async (req, res) => {
+app.get("/biodata/:id",verifyFBtoken, async (req, res) => {
+  console.log("ekhane email ache",req.decoded.email)
   try {
     const id = req.params.id;
     const query = { _id: new ObjectId(id) };
@@ -394,7 +452,7 @@ app.post("/create-payment-intent", async (req, res) => {
 
 app.post("/contact-requests", async (req, res) => {
   const { biodataId, userEmail, transactionId, status ,requestedbioname} = req.body;
-
+//  console.log("ekhane email ache contact e",req.decoded)
   const result = await contactRequestsCollection.insertOne({
     biodataId,
     userEmail,
@@ -421,13 +479,13 @@ app.post("/contact-requests", async (req, res) => {
 //   res.send(result);
 // });
 
-app.get("/biodata-by-ids", async (req, res) => {
+app.get("/biodata-by-ids",verifyFBtoken, async (req, res) => {
   const ids = req.query.ids.split(",").map(id => parseInt(id));
   const biodatas = await biodataCollection.find({ biodataId: { $in: ids } }).toArray();
   res.send(biodatas);
 });
 
-app.patch("/users/:email/requestedbio/remove", async (req, res) => {
+app.patch("/users/:email/requestedbio/remove",verifyFBtoken, async (req, res) => {
   const email = req.params.email;
   const { biodataId } = req.body;
 
@@ -439,10 +497,10 @@ app.patch("/users/:email/requestedbio/remove", async (req, res) => {
   res.send(result);
 });
 
-app.delete("/contact-requests/user/:email/biodata/:biodataId", async (req, res) => {
+app.delete("/contact-requests/user/:email/biodata/:biodataId",verifyFBtoken, async (req, res) => {
   const { email, biodataId } = req.params;
 
-  const result = await contactRequestCollection.deleteOne({
+  const result = await contactRequestsCollection.deleteOne({
     userEmail: email,
     biodataId: parseInt(biodataId)
   });
