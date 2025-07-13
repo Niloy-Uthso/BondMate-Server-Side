@@ -527,7 +527,7 @@ app.get("/premium-biodatas", async (req, res) => {
   }
 });
 
-app.post("/successstory", async (req, res) => {
+app.post("/successstory",verifyFBtoken, async (req, res) => {
   try {
     const {
       selfBiodataId,
@@ -583,6 +583,54 @@ app.get("/successstories", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).send({ error: "Failed to fetch success stories." });
+  }
+});
+
+// ✅ routes/adminDashboard.js or in your existing routes
+app.get('/admin-dashboard-stats', async (req, res) => {
+  try {
+    const totalStats = await biodataCollection.aggregate([
+      {
+        $facet: {
+          totalBiodata: [
+            { $count: "count" }
+          ],
+          maleBiodata: [
+            { $match: { biodataType: "Male" } },
+            { $count: "count" }
+          ],
+          femaleBiodata: [
+            { $match: { biodataType: "Female" } },
+            { $count: "count" }
+          ],
+          premiumBiodata: [
+            { $match: { premiumRole: "yes" } },
+            { $count: "count" }
+          ]
+        }
+      },
+      {
+        $project: {
+          totalBiodata: { $arrayElemAt: ["$totalBiodata.count", 0] },
+          maleBiodata: { $arrayElemAt: ["$maleBiodata.count", 0] },
+          femaleBiodata: { $arrayElemAt: ["$femaleBiodata.count", 0] },
+          premiumBiodata: { $arrayElemAt: ["$premiumBiodata.count", 0] }
+        }
+      }
+    ]).toArray();
+
+    const revenueStats = await contactRequestsCollection.countDocuments();
+
+    res.send({
+      totalBiodata: totalStats[0].totalBiodata || 0,
+      maleBiodata: totalStats[0].maleBiodata || 0,
+      femaleBiodata: totalStats[0].femaleBiodata || 0,
+      premiumBiodata: totalStats[0].premiumBiodata || 0,
+      totalRevenue: revenueStats * 5
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: "Failed to get dashboard stats" });
   }
 });
 
