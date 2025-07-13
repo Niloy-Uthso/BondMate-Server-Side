@@ -50,6 +50,7 @@ const database = client.db("bondmateDB"); // Name of your DB
     const usersCollection = database.collection("users");
      const contactRequestsCollection =database.collection("contactrequest");
      const premiumRequestCollection = database.collection("premiumrequest");
+     const successStoryCollection = database.collection("successstories");
 
      const verifyFBtoken= async (req,res,next)=>{
       // console.log("header in middleweare",req.headers)
@@ -508,6 +509,82 @@ app.delete("/contact-requests/user/:email/biodata/:biodataId",verifyFBtoken, asy
   res.send(result);
 });
 
+
+app.get("/premium-biodatas", async (req, res) => {
+  try {
+    const sortOrder = req.query.sort === "desc" ? -1 : 1;
+
+    const premiumBiodatas = await biodataCollection
+      .find({ premiumRole: "yes" })
+      .sort({ age: sortOrder })
+      .limit(6)
+      .toArray();
+
+    res.send(premiumBiodatas);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "Server error fetching premium biodatas" });
+  }
+});
+
+app.post("/successstory", async (req, res) => {
+  try {
+    const {
+      selfBiodataId,
+      partnerBiodataId,
+      coupleImage,
+      story,
+      rating,
+      userEmail,
+      marriageDate,
+    } = req.body;
+
+    if (
+      !selfBiodataId ||
+      !partnerBiodataId ||
+      !coupleImage ||
+      !story ||
+      !rating ||
+      !userEmail ||
+      !marriageDate
+    ) {
+      return res.status(400).send({ error: "All fields are required." });
+    }
+
+    const newStory = {
+      selfBiodataId: parseInt(selfBiodataId),
+      partnerBiodataId: parseInt(partnerBiodataId),
+      coupleImage,
+      story,
+      rating,
+      userEmail,
+      marriageDate: new Date(marriageDate), // store as Date object
+      createdAt: new Date(),
+    };
+
+    const result = await successStoryCollection.insertOne(newStory);
+    res.send(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: "Failed to add success story." });
+  }
+});
+
+
+
+app.get("/successstories", async (req, res) => {
+  try {
+    const stories = await successStoryCollection
+      .find()
+      .sort({ marriageDate: -1 }) // Descending order
+      .toArray();
+
+    res.send(stories);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: "Failed to fetch success stories." });
+  }
+});
 
 
  
