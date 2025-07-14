@@ -3,7 +3,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const admin = require("firebase-admin");
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-// Load environment variables
+ 
 dotenv.config();
 
 const Stripe = require("stripe");
@@ -13,7 +13,7 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Middleware
+ 
 app.use(cors());
 app.use(express.json());
 
@@ -45,8 +45,8 @@ async function run() {
     await client.connect();
 
 
-const database = client.db("bondmateDB"); // Name of your DB
-    const biodataCollection = database.collection("biodata"); // Your collection
+const database = client.db("bondmateDB");  
+    const biodataCollection = database.collection("biodata");  
     const usersCollection = database.collection("users");
      const contactRequestsCollection =database.collection("contactrequest");
      const premiumRequestCollection = database.collection("premiumrequest");
@@ -183,7 +183,7 @@ app.patch("/users/:email/premium",verifyFBtoken,verifyAdmin, async (req, res) =>
   res.send(result);
 });
 
-// ✅ Patch biodata role
+ 
 app.patch("/biodatas/:email/role",verifyFBtoken,verifyAdmin, async (req, res) => {
   const email = req.params.email;
   const { role } = req.body;
@@ -191,7 +191,7 @@ app.patch("/biodatas/:email/role",verifyFBtoken,verifyAdmin, async (req, res) =>
   res.send(result);
 });
 
-// ✅ Patch biodata premium
+ 
 app.patch("/biodatas/:email/premium",verifyFBtoken,verifyAdmin, async (req, res) => {
   const email = req.params.email;
   const { premiumRole } = req.body;
@@ -210,11 +210,11 @@ app.delete("/premium-requests/:email",verifyFBtoken,verifyAdmin, async (req, res
   res.send(result);
 });
 
-// PATCH approve contact request
+ 
 app.patch("/contactrequest/approve/:id",verifyFBtoken,verifyAdmin, async (req, res) => {
   const requestId = req.params.id;
 
-  // Find the contact request first
+   
   const request = await contactRequestsCollection.findOne({ _id: new ObjectId(requestId) });
 
   if (!request) {
@@ -223,13 +223,13 @@ app.patch("/contactrequest/approve/:id",verifyFBtoken,verifyAdmin, async (req, r
 
   const { biodataId, userEmail } = request;
 
-  // Update the biodata - push email to whoHasContactAccess
+   
   const updateResult = await biodataCollection.updateOne(
     { biodataId: parseInt(biodataId) },
     { $addToSet: { whoHasContactAccess: userEmail } }
   );
 
-  // Remove the request from contactrequest collection
+   
   const deleteResult = await contactRequestsCollection.deleteOne({ _id: new ObjectId(requestId) });
 
   res.send({
@@ -238,13 +238,12 @@ app.patch("/contactrequest/approve/:id",verifyFBtoken,verifyAdmin, async (req, r
 });
 
 
-// Assume you already have a `revenueCollection`
-// Example: const revenueCollection = client.db("YourDB").collection("revenue");
+ 
 
 app.patch("/revenue/increment", async (req, res) => {
   const { amount } = req.body;
 
-  const filter = { _id: "siteRevenue" }; // or use any unique ID you want
+  const filter = { _id: "siteRevenue" };  
   const update = { $inc: { revenue: amount } };
   const options = { upsert: true };
 
@@ -268,7 +267,7 @@ app.patch("/users/add-favourite", async (req, res) => {
 
     const result = await usersCollection.updateOne(
       { email },
-      { $addToSet: { favourites: biodataId } } // prevent duplicates
+      { $addToSet: { favourites: biodataId } }  
     );
 
     res.send(result);
@@ -281,7 +280,7 @@ app.patch("/users/add-favourite", async (req, res) => {
 
 
  app.post("/biodatas-by-ids", async (req, res) => {
-  const ids = req.body.ids; // [1, 5, 12]
+  const ids = req.body.ids;  
 
   const biodatas = await biodataCollection.find({
     biodataId: { $in: ids }
@@ -321,7 +320,7 @@ app.patch("/users/:email/remove-favourite", async (req, res) => {
     app.post("/biodata",verifyFBtoken, async (req, res) => {
       const biodata = req.body;
         
-      // Automatically generate biodataId
+      
       const last = await biodataCollection.find().sort({ biodataId: -1 }).limit(1).toArray();
       const newId = last.length ? last[0].biodataId + 1 : 1;
       biodata.biodataId = newId;
@@ -405,14 +404,14 @@ app.patch("/biodata/:id",verifyFBtoken, async (req, res) => {
  app.post("/premium-request", async (req, res) => {
   const { name, email, biodataId } = req.body;
 
-  // ✅ Check if already requested
+   
   const existingRequest = await premiumRequestCollection.findOne({ email });
 
   if (existingRequest) {
     return res.send({ alreadyRequested: true });
   }
 
-  // ✅ Insert new request
+   
   const result = await premiumRequestCollection.insertOne({
     name,
     email,
@@ -429,7 +428,7 @@ app.delete('/biodata/:id', async (req, res) => {
   res.send(result);
 });
 
-// Get a single biodata by its MongoDB _id
+ 
 app.get("/biodata/:id",verifyFBtoken, async (req, res) => {
    
   try {
@@ -454,7 +453,7 @@ app.get("/biodata/:id",verifyFBtoken, async (req, res) => {
 app.post("/create-payment-intent", async (req, res) => {
   const { price } = req.body;
 
-  const amount = parseInt(price * 100); // Convert USD to cents
+  const amount = parseInt(price * 100); 
 
   try {
     const paymentIntent = await stripe.paymentIntents.create({
@@ -481,7 +480,7 @@ app.post("/contact-requests", async (req, res) => {
     biodataId,
     userEmail,
     transactionId,
-    status, // pending
+    status, 
     createdAt: new Date(),
     requestedbioname,
   });
@@ -581,7 +580,7 @@ app.post("/successstory",verifyFBtoken, async (req, res) => {
       story,
       rating,
       userEmail,
-      marriageDate: new Date(marriageDate), // store as Date object
+      marriageDate: new Date(marriageDate), 
       createdAt: new Date(),
     };
 
@@ -599,7 +598,7 @@ app.get("/successstories", async (req, res) => {
   try {
     const stories = await successStoryCollection
       .find()
-      .sort({ marriageDate: -1 }) // Descending order
+      .sort({ marriageDate: -1 }) 
       .toArray();
 
     res.send(stories);
@@ -609,7 +608,7 @@ app.get("/successstories", async (req, res) => {
   }
 });
 
-// ✅ routes/adminDashboard.js or in your existing routes
+
 app.get('/admin-dashboard-stats', async (req, res) => {
   try {
     const totalStats = await biodataCollection.aggregate([
