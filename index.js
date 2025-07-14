@@ -51,6 +51,7 @@ const database = client.db("bondmateDB"); // Name of your DB
      const contactRequestsCollection =database.collection("contactrequest");
      const premiumRequestCollection = database.collection("premiumrequest");
      const successStoryCollection = database.collection("successstories");
+     const revenueCollection = database.collection("revinue");
 
      const verifyFBtoken= async (req,res,next)=>{
       // console.log("header in middleweare",req.headers)
@@ -103,10 +104,11 @@ const database = client.db("bondmateDB"); // Name of your DB
 
     app.post("/users", async (req, res) => {
   const { email, role } = req.body;
-
+  
   const existingUser = await usersCollection.findOne({ email });
 
   if (existingUser) {
+    
     return res.status(200).send({ message: "User already exists." });
   }
 
@@ -234,6 +236,27 @@ app.patch("/contactrequest/approve/:id",verifyFBtoken,verifyAdmin, async (req, r
     success: updateResult.modifiedCount > 0 && deleteResult.deletedCount > 0,
   });
 });
+
+
+// Assume you already have a `revenueCollection`
+// Example: const revenueCollection = client.db("YourDB").collection("revenue");
+
+app.patch("/revenue/increment", async (req, res) => {
+  const { amount } = req.body;
+
+  const filter = { _id: "siteRevenue" }; // or use any unique ID you want
+  const update = { $inc: { revenue: amount } };
+  const options = { upsert: true };
+
+  const result = await revenueCollection.updateOne(filter, update, options);
+  res.send(result);
+});
+
+app.get("/revenue", async (req, res) => {
+  const doc = await revenueCollection.findOne({ _id: "siteRevenue" });
+  res.send({ revenue: doc?.revenue || 0 });
+});
+
 
 
 
@@ -408,7 +431,7 @@ app.delete('/biodata/:id', async (req, res) => {
 
 // Get a single biodata by its MongoDB _id
 app.get("/biodata/:id",verifyFBtoken, async (req, res) => {
-  console.log("ekhane email ache",req.decoded.email)
+   
   try {
     const id = req.params.id;
     const query = { _id: new ObjectId(id) };
@@ -453,7 +476,7 @@ app.post("/create-payment-intent", async (req, res) => {
 
 app.post("/contact-requests", async (req, res) => {
   const { biodataId, userEmail, transactionId, status ,requestedbioname} = req.body;
-//  console.log("ekhane email ache contact e",req.decoded)
+ 
   const result = await contactRequestsCollection.insertOne({
     biodataId,
     userEmail,
