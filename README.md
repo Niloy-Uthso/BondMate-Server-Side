@@ -6,8 +6,8 @@ This is the backend server for **BondMate** — a matrimonial web application.
 **URL:** [https://bondmate-server-side-abc123.vercel.app](https://bondmate-server-side-abc123.vercel.app)
 
 ## 📧 Admin Credentials
-- **Admin Email:** admin@example.com
-- **Admin Password:** your_password_here
+- **Admin Email:** ad@min.com,
+- **Admin Password:** abcdefgH1
 
 ## 📂 Features
 
